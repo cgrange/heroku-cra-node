@@ -1,0 +1,11 @@
+.Lobby {
+    .scoreboard {
+        align-items: center;
+        display: flex;
+        justify-content: space-evenly;
+    }
+
+    .turn-tracker {
+        margin: 8px 0;
+    }
+}

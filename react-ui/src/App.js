@@ -1,69 +1,62 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import logo from './logo.svg';
-import './App.css';
+import React, { useState, useEffect } from 'react';
+import './App.scss';
+import LandingPage from './LandingPage/LandingPage';
+import Lobby from './Lobby/Lobby';
+import PromptPage from './PromptPage/PromptPage';
+import { eventsUrl } from './config';
+
+const rce = React.createElement;
 
 function App() {
-  const [message, setMessage] = useState(null);
-  const [isFetching, setIsFetching] = useState(false);
-  const [url, setUrl] = useState('/api');
+  const [landingPage, setLandingPage] = useState({});
+  const landingPageProps = {state: landingPage, setState: setLandingPage};
 
-  const fetchData = useCallback(() => {
-    fetch(url)
-      .then(response => {
-        if (!response.ok) {
-          throw new Error(`status ${response.status}`);
-        }
-        return response.json();
-      })
-      .then(json => {
-        setMessage(json.message);
-        setIsFetching(false);
-      }).catch(e => {
-        setMessage(`API call failed: ${e}`);
-        setIsFetching(false);
-      })
-  }, [url]);
+  const [lobby, setLobby] = useState({});
+  const lobbyProps = {state: lobby, setState: setLobby};
 
   useEffect(() => {
-    setIsFetching(true);
-    fetchData();
-  }, [fetchData]);
+    const eventSource = new EventSource(eventsUrl);
+    eventSource.onopen = (e) => {
+      console.log('open: ' + e.data);
+    };
+    eventSource.onmessage = (e) => {
+      console.log('message: ' + e.data);
+    };
+    eventSource.onerror = (e) => {
+      console.log('error');
+      switch( e.target.readyState ) {
+        // if reconnecting
+        case EventSource.CONNECTING:
+          console.log('Reconnecting…');
+          break;
+        // if error was fatal
+        case EventSource.CLOSED:
+          console.log('Connection failed. Will not retry.');
+          break;
+      }
+    };
+    eventSource.addEventListener('state-change', (e) => {
+      const gameState = JSON.parse(e.data);
+      setLandingPage({
+        timeLimit: gameState.timeLimit,
+        gameStarted: gameState.gameStarted
+      });
+      setLobby({
+        team1Score: gameState.team1Score,
+        team2Score: gameState.team2Score,
+        team1sTurn: gameState.team1sTurn,
+        promptsLeft: gameState.promptsLeft
+      });
+    });
+  }, []);
 
-  return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        { process.env.NODE_ENV === 'production' ?
-            <p>
-              This is a production build from create-react-app.
-            </p>
-          : <p>
-              Edit <code>src/App.js</code> and save to reload.
-            </p>
-        }
-        <p>{'« '}<strong>
-          {isFetching
-            ? 'Fetching message from API'
-            : message}
-        </strong>{' »'}</p>
-        <p><a
-          className="App-link"
-          href="https://github.com/mars/heroku-cra-node"
-        >
-          React + Node deployment on Heroku
-        </a></p>
-        <p><a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a></p>
-      </header>
-    </div>
-  );
-
+  return rce('div', {className: 'App'},
+    rce(LandingPage, landingPageProps),
+    rce('div', {className: landingPageProps.state.gameStarted ? '' : 'hidden'}, 
+      rce(PromptPage)
+    ),
+    rce(Lobby, lobbyProps),
+  )
 }
 
 export default App;
