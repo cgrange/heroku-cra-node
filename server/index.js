@@ -2,6 +2,11 @@ const express = require('express');
 const path = require('path');
 const cluster = require('cluster');
 const numCPUs = require('os').cpus().length;
+var cookieParser = require('cookie-parser');
+var logger = require('morgan');
+const bodyParser = require('body-parser');
+
+const gameRouter = require('./routes/game');
 
 const isDev = process.env.NODE_ENV !== 'production';
 const PORT = process.env.PORT || 5000;
@@ -22,10 +27,18 @@ if (!isDev && cluster.isMaster) {
 } else {
   const app = express();
 
+  app.use(logger('dev'));
+  app.use(express.json());
+  app.use(express.urlencoded({ extended: false }));
+  app.use(cookieParser());
+  app.use(bodyParser.json());
+
   // Priority serve any static files.
   app.use(express.static(path.resolve(__dirname, '../react-ui/build')));
 
   // Answer API requests.
+  app.use('/game', gameRouter);
+
   app.get('/api', function (req, res) {
     res.set('Content-Type', 'application/json');
     res.send('{"message":"Hello from Coltons server!"}');
